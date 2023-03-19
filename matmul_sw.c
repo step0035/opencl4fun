@@ -16,6 +16,7 @@ unsigned int end_time;
 
 int main()
 {
+    printf("Pure Software Matmul\r\n");
     size_t filesize;
     char *token1;
     char *token2;

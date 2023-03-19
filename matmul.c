@@ -21,6 +21,7 @@ unsigned int end_time;
 
 int main( int argc, char* argv[] )
 {
+    printf("OpenCL GPU Matmul\r\n");
     // matrices width and height
     int wA = WIDTH_A;
     int hA = HEIGHT_A;
