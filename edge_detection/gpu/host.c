@@ -16,7 +16,6 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    // Load input image using stb_image
     int width, height, channels;
     unsigned char* input_data = stbi_load(argv[1], &width, &height, &channels, STBI_grey);
     if (!input_data)
