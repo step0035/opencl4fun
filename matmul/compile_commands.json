@@ -1,0 +1,14 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-o",
+      "example",
+      "example.c"
+    ],
+    "directory": "/home/stephen/dev/opencl",
+    "file": "/home/stephen/dev/opencl/example.c",
+    "output": "/home/stephen/dev/opencl/example"
+  }
+]
