@@ -24,6 +24,41 @@ int main(int argc, char** argv)
         printf("Failed to load input image\n");
         return -1;
     }
+
+    int padded_width = width + 1;
+    int padded_height = height + 1;
+    printf("input_width : %d\r\n", width);
+    printf("input_height : %d\r\n", height);
+    printf("padded_width : %d\r\n", padded_width);
+    printf("padded_height : %d\r\n", padded_height);
+    unsigned char* padded_image_data = (unsigned char*) malloc(padded_width * padded_height * channels);
+
+    // create the padded image
+    for (int y = 0; y < padded_height; y++)
+    {
+        for (int x = 0; x < padded_width; x++)
+        {
+            if (x < 1 || x >= padded_width - 1 || y < 1 || y >= padded_height - 1)
+            {
+                // Set the pixel to zero if it is in the border.
+                for (int c = 0; c < channels; c++)
+                {
+                    padded_image_data[(y * padded_width + x) * channels + c] = 0;
+                }
+            }
+            else
+            {
+                // Copy the pixel from the original image.
+                int original_x = x - 1;
+                int original_y = y - 1;
+                for (int c = 0; c < channels; c++)
+                {
+                    padded_image_data[(y * padded_width + x) * channels + c] = input_data[(original_y * width + original_x) * channels + c];
+                }
+            }
+        }
+    }
+
     unsigned char* output_data = (unsigned char*) malloc(width * height);
 
     // Initialize OpenCL
@@ -68,8 +103,8 @@ int main(int argc, char** argv)
 
     cl_image_desc clImageDescInput;
     clImageDescInput.image_type = CL_MEM_OBJECT_IMAGE2D;
-    clImageDescInput.image_width = width;
-    clImageDescInput.image_height = height;
+    clImageDescInput.image_width = padded_width;
+    clImageDescInput.image_height = padded_height;
     clImageDescInput.image_row_pitch = 0;
     clImageDescInput.image_slice_pitch = 0;
     clImageDescInput.num_mip_levels = 0;
@@ -104,8 +139,8 @@ int main(int argc, char** argv)
 
     // Write input image data to input image buffer
     size_t origin[3] = {0, 0, 0};
-    size_t region[3] = {width, height, 1};
-    error = clEnqueueWriteImage(queue, input_image, CL_TRUE, origin, region, 0, 0, input_data, 0, NULL, NULL);
+    size_t region[3] = {padded_width, padded_height, 1};
+    error = clEnqueueWriteImage(queue, input_image, CL_TRUE, origin, region, 0, 0, padded_image_data, 0, NULL, NULL);
     if (error != CL_SUCCESS)
     {
         printf("Failed to write input image data to input image buffer\n");
@@ -164,8 +199,8 @@ int main(int argc, char** argv)
     // Set kernel arguments
     error = clSetKernelArg(kernel, 0, sizeof(cl_mem), &input_image);
     error |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &output_image);
-    error |= clSetKernelArg(kernel, 2, sizeof(int), &width);
-    error |= clSetKernelArg(kernel, 3, sizeof(int), &height);
+    error |= clSetKernelArg(kernel, 2, sizeof(int), &padded_width);
+    error |= clSetKernelArg(kernel, 3, sizeof(int), &padded_height);
     if (error != CL_SUCCESS)
     {
         printf("Failed to set OpenCL kernel arguments\n");
@@ -174,8 +209,9 @@ int main(int argc, char** argv)
 
     // Execute kernel
     size_t global_size[2] = {width, height};
+    size_t local_size[2] = {1, 1};
 
-    error = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_size, NULL, 0, NULL, NULL);
+    error = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
     if (error != CL_SUCCESS)
     {
         printf("Failed to execute OpenCL kernel\n");
@@ -188,9 +224,11 @@ int main(int argc, char** argv)
     clFinish(queue);
 
     // Read output image data from output image buffer
-    error = clEnqueueReadImage(queue, output_image, CL_TRUE, origin, region, 0, 0, output_data, 0, NULL, NULL);
+    size_t output_region[3] = {width, height, 1};
+    error = clEnqueueReadImage(queue, output_image, CL_TRUE, origin, output_region, 0, 0, output_data, 0, NULL, NULL);
     if (error != CL_SUCCESS)
     {
+        printf("%d\r\n", error);
         printf("Failed to read output image data from output image buffer\n");
         return -1;
     }
@@ -205,6 +243,7 @@ int main(int argc, char** argv)
     clReleaseCommandQueue(queue);
     clReleaseContext(context);
     free(output_data);
+    free(padded_image_data);
 
     return 0;
 }
