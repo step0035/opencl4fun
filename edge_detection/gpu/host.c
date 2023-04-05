@@ -6,7 +6,9 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define PROGRAM_FILE "sobel.cl"
+//#define PROGRAM_FILE "sobel.cl"
+#define PROGRAM_FILE "sobel_vectorize.cl"
+#define KERNEL_NAME "sobel"
 
 int main(int argc, char** argv)
 {
@@ -188,7 +190,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    cl_kernel kernel = clCreateKernel(program, "sobel", &error);
+    cl_kernel kernel = clCreateKernel(program, KERNEL_NAME, &error);
     if (error != CL_SUCCESS)
     {
         printf("Failed to create OpenCL kernel\n");
@@ -208,7 +210,7 @@ int main(int argc, char** argv)
 
     // Execute kernel
     size_t global_size[2] = {width, height};
-    size_t local_size[2] = {1, 1};
+    size_t local_size[2] = {1, 32};
 
     error = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
     if (error != CL_SUCCESS)

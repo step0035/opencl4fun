@@ -27,4 +27,3 @@ __kernel void sobel(__read_only image2d_t inputImage, __write_only image2d_t out
     float4 gradient = (float4)(sqrt(sum_x * sum_x + sum_y * sum_y), 0.0f, 0.0f, 0.0f);
     write_imagef(outputImage, coord, gradient);
 }
-
