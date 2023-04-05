@@ -1,14 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 #include <CL/cl.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-//#define PROGRAM_FILE "sobel.cl"
-#define PROGRAM_FILE "sobel_vectorize.cl"
+#if KERNEL_OPTIMIZED
+#define PROGRAM_FILE "sobel_optimized.cl"
+#else
+#define PROGRAM_FILE "sobel_rgb.cl"
+#endif
 #define KERNEL_NAME "sobel"
+
+struct timeval start_time, end_time;
 
 int main(int argc, char** argv)
 {
@@ -80,6 +86,9 @@ int main(int argc, char** argv)
         printf("Failed to find OpenCL GPU device\n");
         return -1;
     }
+    // cl_uint *max_workgroup_size;
+    // error = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(max_workgroup_size), max_workgroup_size, NULL);
+    // printf("max workgroup size: %d\n", *max_workgroup_size);
 
     // Create OpenCL context
     cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, &error);
@@ -210,7 +219,14 @@ int main(int argc, char** argv)
 
     // Execute kernel
     size_t global_size[2] = {width, height};
-    size_t local_size[2] = {1, 32};
+#if KERNEL_OPTIMIZED
+    size_t local_size[2] = {16, 16};
+#else
+    size_t local_size[2] = {1, 1};
+#endif
+
+    // get start_time
+    gettimeofday(&start_time, NULL);
 
     error = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
     if (error != CL_SUCCESS)
@@ -219,6 +235,11 @@ int main(int argc, char** argv)
         return -1;
     }
 
+    // get end_time
+    gettimeofday(&end_time, NULL);
+
+    double elapsed_time = (end_time.tv_sec - start_time.tv_sec) + (double)(end_time.tv_usec - start_time.tv_usec)/1000000.0;
+ 
     clFlush(queue);
 
     // Wait for the command queue to get serviced before reading back results
@@ -245,6 +266,8 @@ int main(int argc, char** argv)
     clReleaseContext(context);
     free(output_data);
     free(padded_image_data);
+
+    printf("Time taken = %f seconds\r\n", elapsed_time);
 
     return 0;
 }
