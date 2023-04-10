@@ -77,12 +77,23 @@ int main(int argc, char** argv)
     }
 
     // create command queue
-    cl_command_queue queue = clCreateCommandQueueWithProperties(context, device, 0, &error);
+    // cl_command_queue_properties property = CL_QUEUE_PROFILING_ENABLE; // enable profiling
+    cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
+    cl_command_queue queue = clCreateCommandQueueWithProperties(context, device, &properties[0], &error);
     if (error != CL_SUCCESS)
     {
+        printf("error: %d\n", error);
         printf("Failed to create OpenCL command queue\n");
         return -1;
     }
+
+    // create some cl events for profiling
+    cl_event write_timing_event;
+    cl_event read_timing_event;
+    cl_ulong time_start;
+    cl_ulong time_end;
+    cl_ulong write_time;
+    cl_ulong read_time;
 
     // set input and output image format
     cl_image_format format;
@@ -130,13 +141,19 @@ int main(int argc, char** argv)
     // copy input image data to opencl input image buffer
     size_t origin[3] = {0, 0, 0};
     size_t region[3] = {width, height, 1};
-    error = clEnqueueWriteImage(queue, input_image, CL_TRUE, origin, region, 0, 0, input_data, 0, NULL, NULL);
+    error = clEnqueueWriteImage(queue, input_image, CL_TRUE, origin, region, 0, 0, input_data, 0, NULL, &write_timing_event);
     if (error != CL_SUCCESS)
     {
         printf("error: %d\r\n", error);
         printf("Failed to write input image data to input image buffer\n");
         return -1;
     }
+
+    clGetEventProfilingInfo(write_timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+    clGetEventProfilingInfo(write_timing_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL); 
+
+    write_time = time_end - time_start;
+    printf("write time: %ld\n", write_time);
 
     // Create the compute program from the .cl file
     // first we read the kernel code string from the file
@@ -230,13 +247,19 @@ int main(int argc, char** argv)
     double elapsed_time = (end_time.tv_sec - start_time.tv_sec) + (double)(end_time.tv_usec - start_time.tv_usec)/1000000.0;
  
     // Read output image data from output image buffer
-    error = clEnqueueReadImage(queue, output_image, CL_TRUE, origin, region, 0, 0, output_data, 0, NULL, NULL);
+    error = clEnqueueReadImage(queue, output_image, CL_TRUE, origin, region, 0, 0, output_data, 0, NULL, &read_timing_event);
     if (error != CL_SUCCESS)
     {
         printf("%d\r\n", error);
         printf("Failed to read output image data from output image buffer\n");
         return -1;
     }
+
+    clGetEventProfilingInfo(read_timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+    clGetEventProfilingInfo(read_timing_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL); 
+    
+    read_time = time_end - time_start;
+    printf("read time: %ld\n", read_time);
 
     // write the output image
     stbi_write_jpg("output_gpu.jpg", width, height, 1, output_data, 100);
@@ -251,6 +274,7 @@ int main(int argc, char** argv)
     free(output_data);
 
     printf("Time taken = %f seconds\r\n", elapsed_time);
+    printf("overhead time: %ld ms\n", (write_time + read_time)/1000);
 
     return 0;
 }
