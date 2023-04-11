@@ -7,15 +7,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define KERNEL_OPTIMIZED 1
-
-#if KERNEL_OPTIMIZED
 #define WGSIZE 16
-#define PROGRAM_FILE "sobel_optimized.cl"
-// #define PROGRAM_FILE "shared.cl"
-#else
-#define PROGRAM_FILE "sobel_rgb.cl"
-#endif
+#define PROGRAM_FILE "sobel.cl"
 #define KERNEL_NAME "sobel"
 
 int main(int argc, char** argv)
@@ -217,13 +210,8 @@ int main(int argc, char** argv)
 
     // global workgroup size is the output image size = width * height
     size_t globalws[2] = {width, height};
-    // local workgroup size, if optimzied, can handle 16x16 per work item, if not, 1x1 per work item
-    // TODO: the global workgroup size should preferably be divisible by local workgroups size on all dimensions
-#if KERNEL_OPTIMIZED
+    // local workgroup size, if optimzied, can handle up to 16x16 work item
     size_t localws[2] = {WGSIZE, WGSIZE};
-#else
-    size_t localws[2] = {1, 1};
-#endif
 
     // get start_time
     gettimeofday(&start_time, NULL);
